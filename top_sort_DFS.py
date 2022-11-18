@@ -3,14 +3,8 @@ import numpy as np
 from numpy.random.mtrand import sample
 from matplotlib import pyplot as plt
 import networkx as nx
+import time 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--mode', default='default', type=str)#parameters setting
-parser.add_argument('--n', default=10, type=int)          #number of DAG  nodes
-parser.add_argument('--max_out', default=2, type=float)   #max out_degree of one node
-parser.add_argument('--alpha',default=1,type=float)       #shape 
-parser.add_argument('--beta',default=1.0,type=float)      #regularity
-args = parser.parse_args()
 
 #set_dag_size = [20,30,40,50,60,70,80,90]             #random number of DAG  nodes       
 set_dag_size = [5]
@@ -47,21 +41,10 @@ class DAG_generator():
 
     def generate_DAG_complex(mode = 'default',n = 10,max_out = 2,alpha = 1,beta = 1.0):
         ##############################################initialize###########################################
-        args.mode = mode
-        if args.mode != 'default':
-            args.n = random.sample(set_dag_size,1)[0]
-            args.max_out = random.sample(set_max_out,1)[0]
-            args.alpha = random.sample(set_alpha,1)[0]
-            args.beta = random.sample(set_alpha,1)[0]
-        else: 
-            args.n = n
-            args.max_out = max_out
-            args.alpha = alpha
-            args.beta = beta
 
-        length = math.floor(math.sqrt(args.n)/args.alpha)
-        mean_value = args.n/length
-        random_num = np.random.normal(loc = mean_value, scale = args.beta,  size = (length,1))    
+        length = math.floor(math.sqrt(n)/alpha)
+        mean_value = n/length
+        random_num = np.random.normal(loc = mean_value, scale = beta,  size = (length,1))    
         ###############################################division############################################
         position = {'Start':(0,4),'Exit':(10,4)}
         generate_num = 0
@@ -73,14 +56,14 @@ class DAG_generator():
                 dag_list[i].append(j)
             generate_num += math.ceil(random_num[i])
 
-        if generate_num != args.n:
-            if generate_num<args.n:
-                for i in range(args.n-generate_num):
+        if generate_num != n:
+            if generate_num<n:
+                for i in range(n-generate_num):
                     index = random.randrange(0,length,1)
                     dag_list[index].append(len(dag_list[index]))
-            if generate_num>args.n:
+            if generate_num>n:
                 i = 0
-                while i < generate_num-args.n:
+                while i < generate_num-n:
                     index = random.randrange(0,length,1)
                     if len(dag_list[index])==1:
                         i = i-1 if i!=0 else 0
@@ -103,15 +86,15 @@ class DAG_generator():
             position['Exit']=(3*(length+1),max_pos/2)
 
         ############################################link###################################################
-        into_degree = [0]*args.n            
-        out_degree = [0]*args.n             
+        into_degree = [0]*n            
+        out_degree = [0]*n             
         edges = []                          
         pred = 0
 
         for i in range(length-1):
             sample_list = list(range(len(dag_list_update[i+1])))
             for j in range(len(dag_list_update[i])):
-                od = random.randrange(1,args.max_out+1,1)
+                od = random.randrange(1,max_out+1,1)
                 od = len(dag_list_update[i+1]) if len(dag_list_update[i+1])<od else od
                 bridge = random.sample(sample_list,od)
                 for k in bridge:
@@ -138,26 +121,42 @@ class DAG_generator():
 
 
 class TopSort_DFS():
-    def __init__(self) -> None:
-        pass
     _time = 0
     _sorted_list = []
+    _debug = 0
+
+    def __init__(self, debug):
+        self._debug = debug
+
     def DeepFirstSearch(self, G):
+        self._time = 0
+        self._sorted_list = []
+        dfs_time_start = time.process_time()
         nx.set_node_attributes(G, 'white', "color")
         nx.set_node_attributes(G, None, "Pi")
         nx.set_node_attributes(G, None, "d")
         nx.set_node_attributes(G, None, "f")
+        if self._debug:
+            print('Size: ', len(G.nodes()))
+            print('Time: ', self._time)
         for u in G.nodes():
             if (G.nodes[u]["color"] == 'white'):
                 #print("DFS: Node {} is white".format(u))
                 self.DFS_visit(u, G)
-        #print(nx.get_node_attributes(G,"color"))
-        #print(nx.get_node_attributes(G,"d"))
-        print(nx.get_node_attributes(G,"f"))
-        print(list(reversed(self._sorted_list)))
-        #return self._sorted_list.reverse()
+        if self._debug:
+            #print(nx.get_node_attributes(G,"color"))
+            #print(nx.get_node_attributes(G,"d"))
+            #print(nx.get_node_attributes(G,"f"))
+            print(list(reversed(self._sorted_list)))
+        dfs_time_end = time.process_time()
+        dfs_exec_t = dfs_time_end - dfs_time_start
+        if self._debug:
+            print('DFS Execution Time:', dfs_exec_t)
+        return dfs_exec_t
+
     def DFS_visit(self, u, G):
-        #print('DFS_visit: Entrance for node {}'.format(u))
+        #if self._debug:
+        #    print('DFS_visit: Entrance for node {}'.format(u))
         G.nodes[u]["color"] = 'gray'
         G.nodes[u]["d"]=self._time
         self._time = self._time +1
@@ -173,47 +172,72 @@ class TopSort_DFS():
 
 
 class TopSort_Kahns():
-    def __init__(self) -> None:
-        pass
+    _debug = 0
+    
+    def __init__(self, debug):
+        self._debug = debug
+
     def KahnsAlgorithm(self, G):
         sorted = []
-        G_copy = G.copy() 
-        while G_copy.number_of_nodes() > 0:
-            #Find all degree 0 nodes
-            #print(G_copy.in_degree())
-            in_degree_dict = dict(G_copy.in_degree())
-            degree_0 = [x for x, value in in_degree_dict.items() if value==0]
-            #print(degree_0)
-            for i in degree_0:
-                G_copy.remove_node(i)
-                sorted.append(i)
-        print(sorted)
-        #return sorted
+        #G = G.copy()
+        kahn_time_start = time.process_time() 
+        while G.number_of_nodes() > 0:
+            for node in list(G.nodes()):
+                if G.in_degree(node) == 0:
+                    #degree_0.append(node)
+                    G.remove_node(node)
+                    sorted.append(node)
+        kahn_time_end = time.process_time()
+        kahn_exec_t = kahn_time_end - kahn_time_start
+        if self._debug:
+            print('Kahns Execution Time:', kahn_exec_t)
+        if self._debug:
+            print(sorted)
+        return kahn_exec_t
 
 class TestTopSort():
-    def __init__(self) -> None:
-        pass
-    _p = 0.7
-    _TS_DFS = TopSort_DFS()
-    _TS_Kahns = TopSort_Kahns()
-    def test_single_DFS(self, G):
-        self._TS_DFS.DeepFirstSearch(G)
-    def test_single_kahns(self, G):
-        self._TS_Kahns.KahnsAlgorithm(G)
+    _TS_DFS = TopSort_DFS(0)
+    _TS_Kahns = TopSort_Kahns(0)
+    _DG = DAG_generator()
+    _debug = 0
 
-
-TS = TestTopSort()
-DG = DAG_generator()
-print("Generate Graph")
-(edges,into_degree,out_degree,position) = DG.generate_DAG_complex()
-G = nx.DiGraph()
-G.add_edges_from(edges)
-print("------------DFS--------------")
-TS.test_single_DFS(G)
-print("------------Kahn--------------")
-TS.test_single_kahns(G)
-print("------------NX--------------")
-print(list(list(nx.topological_sort(G))))
-nx.draw_networkx(G, arrows=True, pos=position)
-plt.show()
+    def __init__(self, debug):
+        self._debug = debug
     
+    def run_avg_point(self, n=10, alg='dfs', samples=5, max_out=3):
+        list_exect_times = []
+        for i in range(samples):
+            G = nx.DiGraph()
+            (edges,into_degree,out_degree,position) = self._DG.generate_DAG_complex(n=n, max_out=max_out)
+            G = nx.DiGraph()
+            G.add_edges_from(edges)
+            if alg=='dfs':
+                exec_t = self._TS_DFS.DeepFirstSearch(G)
+            else: 
+                exec_t = self._TS_Kahns.KahnsAlgorithm(G)
+            if self._debug:
+                print('Execution Time: ',exec_t)
+            list_exect_times.append(exec_t)
+        avg = sum(list_exect_times)/samples
+        return avg
+    
+    def run_regression(self):
+        set_dag_size = [100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 900000]      
+        #set_dag_size = [10, 100, 500]      
+        set_max_out = [1,2,3,4,5,10]
+        set_alpha = [0.5,1.0,2.0]
+        set_beta = [0.0,0.5,1.0,2.0]
+        f = open("results.txt", "w")
+        f.write('Max_out, Size , DFS, KAHNS \n')
+        for max_out in set_max_out:
+            for n in set_dag_size:
+                dfs_avg = self.run_avg_point(n=n, alg='dfs', samples=5, max_out=max_out)
+                kahn_avg = self.run_avg_point(n=n, alg='kahn', samples=5, max_out=max_out)
+                f.write('{}, {}, {}, {}\n'.format(max_out, n, dfs_avg, kahn_avg))
+        f.close()
+
+            
+
+
+TS = TestTopSort(0)
+TS.run_regression()
