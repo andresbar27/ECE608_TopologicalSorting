@@ -12,4 +12,4 @@ python3 -m pip install --upgrade networkx
 python3 -m pip install matplotlib
 
 To Run Regression:
-python3 top_sort_DFS.py
+python3 top_sort_Test.py
